@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>가나다</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="가나다">
+<link rel="apple-touch-icon" href="icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #e9f3ff; overflow: hidden; font-family: 'Jua', sans-serif; color: #2b2350; }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; }
+  .lock { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+  .lock img { width: 120px; }
+  .lock h1 { margin: 0; font-weight: normal; font-size: 44px; }
+  .lock p { margin: 0; font-size: 20px; color: #6f66a0; min-height: 1.4em; }
+  .lock input { width: 260px; height: 56px; border: 3px solid #d6cff0; border-radius: 28px; padding: 0 22px; font: inherit; font-size: 22px; outline: none; text-align: center; }
+  .lock input:focus { border-color: #8b6be8; }
+  .lock button { height: 60px; padding: 0 40px; border: 0; border-radius: 30px; background: #8b6be8; color: #fff; font: inherit; font-size: 26px; box-shadow: 0 5px 0 #6a4fc4; cursor: pointer; }
+  .lock button:disabled { opacity: .6; }
+</style>
+</head>
+<body>
+<div class="lock" id="lock">
+  <img src="icon.png" alt="">
+  <h1>가나다 놀이</h1>
+  <p id="msg">보호자 암호를 넣어 주세요</p>
+  <input id="pw" type="password" autocomplete="current-password" aria-label="암호">
+  <button id="go">열기</button>
+</div>
+<iframe id="app" title="가나다" allow="autoplay"></iframe>
+<script>
+(() => {
+  const ITER = 250000, $ = (id) => document.getElementById(id);
+  const b64 = (u8) => btoa(String.fromCharCode(...u8)), unb64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  let data = null, pages = null;
+  const getData = async () => data || (data = new Uint8Array(await (await fetch('data.bin?v=mv3j4xd1', { cache: 'no-cache' })).arrayBuffer()));
+  async function open(rawKey) {
+    const d = await getData(), salt = d.slice(0, 16), iv = d.slice(16, 28);
+    const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
+    const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, d.slice(28)));
+    const n = new DataView(plain.buffer).getUint32(0, true);
+    const head = JSON.parse(new TextDecoder().decode(plain.slice(4, 4 + n)));
+    const A = {};
+    for (const [k, [off, len, mime]] of Object.entries(head.assets))
+      A[k] = URL.createObjectURL(new Blob([plain.slice(4 + n + off, 4 + n + off + len)], { type: mime }));
+    window.__A = A; pages = head.pages;
+    $('lock').style.display = 'none'; $('app').style.display = 'block';
+    hbGo(sessionStorage.getItem('hb_page') || 'index');
+  }
+  window.hbGo = (name) => { if (!pages[name]) name = 'index'; sessionStorage.setItem('hb_page', name); $('app').srcdoc = pages[name]; };
+  async function derive(pw) {
+    const d = await getData();
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: d.slice(0, 16), iterations: ITER }, base, 256));
+  }
+  async function tryPw() {
+    const pw = $('pw').value; if (!pw) return;
+    $('go').disabled = true; $('msg').textContent = '여는 중…';
+    try {
+      const raw = await derive(pw); await open(raw);
+      try { localStorage.setItem('hb_key_v1', b64(raw)); } catch (_) {}   // 이 기기는 다음부터 암호 없이
+    } catch (e) { $('msg').textContent = '암호가 맞지 않아요'; $('go').disabled = false; $('pw').select(); }
+  }
+  $('go').onclick = tryPw;
+  $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryPw(); });
+  (async () => {
+    const saved = (() => { try { return localStorage.getItem('hb_key_v1'); } catch (_) { return null; } })();
+    if (saved) { try { await open(unb64(saved)); return; } catch (_) { try { localStorage.removeItem('hb_key_v1'); } catch (e) {} } }
+    $('pw').focus();
+  })();
+})();
+</script>
+</body>
+</html>
