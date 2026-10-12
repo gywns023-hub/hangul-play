@@ -37,7 +37,7 @@
   const ITER = 250000, $ = (id) => document.getElementById(id);
   const b64 = (u8) => btoa(String.fromCharCode(...u8)), unb64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   let data = null, pages = null;
-  const getData = async () => data || (data = new Uint8Array(await (await fetch('data.bin?v=mv4x6omz', { cache: 'no-cache' })).arrayBuffer()));
+  const getData = async () => data || (data = new Uint8Array(await (await fetch('data.bin?v=mv4z0fq2', { cache: 'no-cache' })).arrayBuffer()));
   async function open(rawKey) {
     const d = await getData(), salt = d.slice(0, 16), iv = d.slice(16, 28);
     const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
